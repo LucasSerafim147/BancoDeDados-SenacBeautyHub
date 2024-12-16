@@ -137,6 +137,10 @@ END;
 
 DELIMITER ;
 
+select * from disponibilidade;
+INSERT INTO Disponibilidade (data, hora, especialista_idespecialista,especialista_usuario_idUsuario) 
+VALUES ('2024-12-13', '09:00:00', 1,2);
+
 
 
 
