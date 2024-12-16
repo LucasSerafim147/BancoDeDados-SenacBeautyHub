@@ -48,7 +48,7 @@ BEGIN
 END$$
 
 DELIMITER $$
--- Trigger 5: Impedir agendamentos duplicados
+-- Trigger 5: Impedir agendamentos duplicados -- DEU CERTO EM
 CREATE TRIGGER before_insert_agendamento
 BEFORE INSERT ON `agendamento`
 FOR EACH ROW
@@ -77,7 +77,7 @@ BEGIN
 END$$
 
 DELIMITER $$
--- Trigger 7: Verificar se especialista está disponível
+-- Trigger 7: Verificar se especialista está disponível -- DEU CERTO EM
 CREATE TRIGGER before_insert_Disponibilidade
 BEFORE INSERT ON `Disponibilidade`
 FOR EACH ROW
@@ -113,7 +113,7 @@ BEGIN
 END$$
 
 DELIMITER $$
--- Trigger 10: Bloquear exclusão de usuários com agendamentos ativos
+-- Trigger 10: Bloquear exclusão de usuários com agendamentos ativos ESSE DEU CERTO EM
 CREATE TRIGGER before_delete_usuario
 BEFORE DELETE ON `usuario`
 FOR EACH ROW
