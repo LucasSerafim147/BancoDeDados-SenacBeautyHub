@@ -24,7 +24,7 @@ BEGIN
 END$$
 
 DELIMITER $$
--- Trigger 3: Garantir relação válida entre cliente e usuário
+-- Trigger 3: Garantir relação válida entre cliente e usuário -- PEGOU EM 
 CREATE TRIGGER before_insert_cliente
 BEFORE INSERT ON `cliente`
 FOR EACH ROW
@@ -144,6 +144,8 @@ VALUES ('2024-12-13', '09:00:00', 1,2);
 
 
 insert into agendamento values('1', '2024-01-01', '10:00:00', '1', '3');
+
+INSERT INTO cliente (IDCLIENTE, usuario_idUsuario) VALUES ('19', 999);
 
 
 
