@@ -1,107 +1,144 @@
-
--- TRIGGERS 
-
-
--- TESTE
 DELIMITER $$
-
-CREATE TRIGGER teste_trigger
-AFTER INSERT ON servicos_has_agendamento
+-- Trigger 1: Registrar data de criação em 'usuario'
+CREATE TRIGGER before_insert_usuario
+BEFORE INSERT ON `usuario`
 FOR EACH ROW
 BEGIN
-    INSERT INTO log_trigger (mensagem) VALUES ('Trigger executado com sucesso');
+    SET NEW.dataNasc = IFNULL(NEW.dataNasc, CURDATE());
 END$$
 
-DELIMITER ;
+INSERT INTO usuario (nome, email) VALUES ('João Silva', 'joao@email.com');
 
--- PRIMEIRO TRIGGER 
 DELIMITER $$
-
-CREATE TRIGGER verificar_preco_servico
-BEFORE UPDATE ON servicos
+-- Trigger 2: Garantir telefone único por usuário
+CREATE TRIGGER before_insert_telefone
+BEFORE INSERT ON `telefone`
 FOR EACH ROW
 BEGIN
-    IF OLD.preco <> NEW.preco THEN
-        INSERT INTO log_alteracao (mensagem)
-        VALUES (CONCAT('Preço do serviço ', OLD.nome, ' alterado de ', OLD.preco, ' para ', NEW.preco));
+    IF EXISTS (
+        SELECT 1 FROM `telefone` WHERE numero = NEW.numero AND usuario_idUsuario = NEW.usuario_idUsuario
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'O número de telefone já está registrado para este usuário.';
     END IF;
 END$$
 
-DELIMITER ;
-
--- SEGUNDO TRIGGER
-
 DELIMITER $$
-
-CREATE TRIGGER atualizar_servicos_dia
-AFTER INSERT ON agendamento
+-- Trigger 3: Garantir relação válida entre cliente e usuário
+CREATE TRIGGER before_insert_cliente
+BEFORE INSERT ON `cliente`
 FOR EACH ROW
 BEGIN
-    UPDATE servicos_dia
-    SET total_servicos = total_servicos + 1
-    WHERE dia = DATE(NEW.data);
+    IF NOT EXISTS (
+        SELECT 1 FROM `usuario` WHERE idUsuario = NEW.usuario_idUsuario
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Usuário associado ao cliente não existe.';
+    END IF;
 END$$
 
-DELIMITER ;
-
--- TERCEIRO TRIGGER
 DELIMITER $$
-
-CREATE TRIGGER cancelar_agendamento
-AFTER DELETE ON agendamento
+-- Trigger 4: Atualizar log após alteração em 'alteracao'
+CREATE TRIGGER after_insert_alteracao
+AFTER INSERT ON `alteracao`
 FOR EACH ROW
 BEGIN
-    DELETE FROM servicos_has_agendamento
+    INSERT INTO `log_alteracoes` (`idalteracao`, `dataAlteracao`, `descricao`)
+    VALUES (NEW.idalteracao, NEW.dataAlteracao, CONCAT('Alteração de serviço: ', NEW.novoServico));
+END$$
+
+DELIMITER $$
+-- Trigger 5: Impedir agendamentos duplicados
+CREATE TRIGGER before_insert_agendamento
+BEFORE INSERT ON `agendamento`
+FOR EACH ROW
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM `agendamento` WHERE data = NEW.data AND hora = NEW.hora
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Já existe um agendamento para esta data e hora.';
+    END IF;
+END$$
+
+DELIMITER $$
+-- Trigger 6: Calcular preço total em 'servicos_has_agendamento'
+CREATE TRIGGER after_insert_servicos_has_agendamento
+AFTER INSERT ON `servicos_has_agendamento`
+FOR EACH ROW
+BEGIN
+    DECLARE total DECIMAL(10,2);
+    SELECT SUM(preco) INTO total
+    FROM `servicos`
+    WHERE idservicos = NEW.servicos_idservicos;
+    UPDATE `agendamento`
+    SET totalPreco = total
+    WHERE idagendamento = NEW.agendamento_idagendamento;
+END$$
+
+DELIMITER $$
+-- Trigger 7: Verificar se especialista está disponível
+CREATE TRIGGER before_insert_Disponibilidade
+BEFORE INSERT ON `Disponibilidade`
+FOR EACH ROW
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM `Disponibilidade` 
+        WHERE data = NEW.data AND hora = NEW.hora AND especialista_idespecialista = NEW.especialista_idespecialista
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Especialista já está ocupado nesse horário.';
+    END IF;
+END$$
+
+DELIMITER $$
+-- Trigger 8: Atualizar tabela de serviços após remoção de um agendamento
+CREATE TRIGGER after_delete_agendamento
+AFTER DELETE ON `agendamento`
+FOR EACH ROW
+BEGIN
+    DELETE FROM `servicos_has_agendamento`
     WHERE agendamento_idagendamento = OLD.idagendamento;
 END$$
 
-DELIMITER ;
-
--- QUARTO TRIGGER 
 DELIMITER $$
-
-CREATE TRIGGER notificar_alteracao_preco_servico
-AFTER UPDATE ON servicos
+-- Trigger 9: Atualizar total de agendamentos por administrador
+CREATE TRIGGER after_insert_agendamento_count
+AFTER INSERT ON `agendamento`
 FOR EACH ROW
 BEGIN
-    IF OLD.preco <> NEW.preco THEN
-        INSERT INTO notificacoes (mensagem)
-        VALUES (CONCAT('O preço do serviço "', NEW.nome, '" foi alterado para ', NEW.preco));
+    UPDATE `administrador`
+    SET totalAgendamentos = (SELECT COUNT(*) FROM `agendamento` WHERE administrador_idadministrador = NEW.administrador_idadministrador)
+    WHERE idadministrador = NEW.administrador_idadministrador;
+END$$
+
+DELIMITER $$
+-- Trigger 10: Bloquear exclusão de usuários com agendamentos ativos
+CREATE TRIGGER before_delete_usuario
+BEFORE DELETE ON `usuario`
+FOR EACH ROW
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM `agendamento` WHERE administrador_usuario_idUsuario = OLD.idUsuario
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Usuário não pode ser excluído enquanto possuir agendamentos ativos.';
     END IF;
 END$$
 
-DELIMITER ;
-
-
--- QUINTO TRIGGER 
-DELIMITER $$
-
-
-
-CREATE TRIGGER registrar_historico_alteracao_servico
-AFTER UPDATE ON servicos
+CREATE TRIGGER after_insert_agendamento_log
+AFTER INSERT ON `agendamento`
 FOR EACH ROW
 BEGIN
-    INSERT INTO historico_servicos (servico_id, nome_antigo, preco_antigo, nome_novo, preco_novo, data_alteracao)
-    VALUES (NEW.idservicos, OLD.nome, OLD.preco, NEW.nome, NEW.preco, NOW());
-END$$
+    INSERT INTO `log_agendamentos` (`mensagem`, `dataRegistro`)
+    VALUES (CONCAT('Agendamento criado: Data - ', NEW.data, ', Hora - ', NEW.hora), NOW());
+END;
+
 
 DELIMITER ;
 
--- SEXTO TRIGGER 
-DELIMITER $$
 
-CREATE TRIGGER registrar_alteracao_data_agendamento
-AFTER UPDATE ON agendamento
-FOR EACH ROW
-BEGIN
-    INSERT INTO historico_agendamentos (agendamento_id, data_antiga, data_nova)
-    VALUES (NEW.idagendamento, OLD.data, NEW.data);
-END$$
 
-DELIMITER ;
-
-SHOW triggers;
 
 
 
