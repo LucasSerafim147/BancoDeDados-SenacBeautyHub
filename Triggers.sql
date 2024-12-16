@@ -147,6 +147,8 @@ insert into agendamento values('1', '2024-01-01', '10:00:00', '1', '3');
 
 INSERT INTO cliente (IDCLIENTE, usuario_idUsuario) VALUES ('19', 999);
 
+INSERT INTO TELEFONE(IDTELEFONE,NUMERO,USUARIO_IDUSUARIO) VALUES('1', '999111222', '1')
+
 
 
 
